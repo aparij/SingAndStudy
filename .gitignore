@@ -1,56 +1,10 @@
-/assets/.svn/all-wcprops
-/assets/.svn/entries
-/assets/.svn/prop-base/0410.png.svn-base
-/assets/.svn/prop-base/0626.png.svn-base
-/assets/.svn/prop-base/1150.png.svn-base
-/assets/.svn/prop-base/add_song32x32.png.svn-base
-/assets/.svn/prop-base/add_song.png.svn-base
-/assets/.svn/prop-base/bookmark21x20.png.svn-base
-/assets/.svn/prop-base/bookmark.png.svn-base
-/assets/.svn/prop-base/find32x32.png.svn-base
-/assets/.svn/prop-base/heart.png.svn-base
-/assets/.svn/prop-base/pdf32x32.png.svn-base
-/assets/.svn/prop-base/pdficon25x25.png.svn-base
-/assets/.svn/prop-base/pdficon.png.svn-base
-/assets/.svn/prop-base/question22x22.png.svn-base
-/assets/.svn/prop-base/question-64.png.svn-base
-/assets/.svn/prop-base/Right-arrow-256.png.svn-base
-/assets/.svn/prop-base/right_arrow32x32.png.svn-base
-/assets/.svn/prop-base/save32x32.png.svn-base
-/assets/.svn/prop-base/Spirited Away Icon 32.png.svn-base
-/assets/.svn/prop-base/Spirited Away Icon 68.png.svn-base
-/assets/.svn/prop-base/stickers_preview.jpg.svn-base
-/assets/.svn/prop-base/Thumbs.db.svn-base
-/assets/.svn/prop-base/translate32x32.png.svn-base
-/assets/.svn/prop-base/word_guess32x32.png.svn-base
-/assets/.svn/prop-base/Youtube_256x256.png.svn-base
-/assets/.svn/prop-base/youtube32x32.png.svn-base
-/assets/.svn/prop-base/youtube42x17.png.svn-base
-/assets/.svn/prop-base/youtube.png.svn-base
-/assets/.svn/text-base/0410.png.svn-base
-/assets/.svn/text-base/0626.png.svn-base
-/assets/.svn/text-base/1150.png.svn-base
-/assets/.svn/text-base/add_song32x32.png.svn-base
-/assets/.svn/text-base/add_song.png.svn-base
-/assets/.svn/text-base/bookmark21x20.png.svn-base
-/assets/.svn/text-base/bookmark.png.svn-base
-/assets/.svn/text-base/find32x32.png.svn-base
-/assets/.svn/text-base/heart.png.svn-base
-/assets/.svn/text-base/pdf32x32.png.svn-base
-/assets/.svn/text-base/pdficon25x25.png.svn-base
-/assets/.svn/text-base/pdficon.png.svn-base
-/assets/.svn/text-base/question22x22.png.svn-base
-/assets/.svn/text-base/question-64.png.svn-base
-/assets/.svn/text-base/Right-arrow-256.png.svn-base
-/assets/.svn/text-base/right_arrow32x32.png.svn-base
-/assets/.svn/text-base/save32x32.png.svn-base
-/assets/.svn/text-base/Spirited Away Icon 32.png.svn-base
-/assets/.svn/text-base/Spirited Away Icon 68.png.svn-base
-/assets/.svn/text-base/stickers_preview.jpg.svn-base
-/assets/.svn/text-base/Thumbs.db.svn-base
-/assets/.svn/text-base/translate32x32.png.svn-base
-/assets/.svn/text-base/word_guess32x32.png.svn-base
-/assets/.svn/text-base/Youtube_256x256.png.svn-base
-/assets/.svn/text-base/youtube32x32.png.svn-base
-/assets/.svn/text-base/youtube42x17.png.svn-base
-/assets/.svn/text-base/youtube.png.svn-base
+# Build and Release Folders
+bin-debug/
+bin-release/
+
+# Project property files
+.actionScriptProperties
+.flexProperties
+.settings/
+.project
+
