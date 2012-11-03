@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="450" height="145" horizontalScrollPolicy="off" 
+	verticalScrollPolicy="off" xmlns:local="*" mouseChildren="false"
+	 buttonMode="true" click="showVideo()"
+	 xmlns:components="com.singandstudy.view.components.*"
+	 >
+	<mx:Script>
+		<![CDATA[
+        import be.boulevart.google.data.GoogleVideo;
+
+        import com.singandstudy.controller.events.ShowMovieEvent;
+
+        private var video:GoogleVideo;
+
+        private function showVideo():void {
+            dispatchEvent(new ShowMovieEvent(ShowMovieEvent.SHOW_MOVIE_EVENT, data.playUrl));
+        }
+			
+		]]>
+	</mx:Script>
+	<components:SmoothImage x="10" y="10" source="{data.thumbUrl}" maxHeight="100" maxWidth="145"/>
+	<mx:Label text="{data.visibleUrl}" textAlign="left" left="10" right="226" bottom="5" id="btnLink" fontWeight="bold"/>
+	<mx:TextArea htmlText="{data.title}" fontSize="14" fontWeight="bold" id="lblTitel" top="10" left="164" wordWrap="true" height="33" right="30" borderStyle="none" backgroundAlpha="0.0"/>
+	<mx:HRule left="10" right="10" bottom="1" strokeColor="black" strokeWidth="5"/>
+</mx:Canvas>

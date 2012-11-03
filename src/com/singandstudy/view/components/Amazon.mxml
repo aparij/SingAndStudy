@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:Components="com.singandstudy.view.components.*"
+	horizontalScrollPolicy="off" verticalScrollPolicy="off"
+	initialize="init()"
+	>
+
+    <mx:LinkButton visible="{_detailPageUrlString!=null}" label="Buy on Amazon" color="0x3380DD" click="{openNewWindow()}"
+			             textDecoration="underline" fontWeight="normal"  />
+
+	<mx:Image id="cdImage" width="240" height="170"/>
+
+	<mx:Script>
+		<![CDATA[
+        import com.singandstudy.controller.events.AmazonCallEvent;
+
+        [Bindable]
+        private var _detailPageUrlString:String = null;
+        //			[Bindable] private var url:String="";
+        [Bindable]
+        private var associateTag:String = "";
+
+
+        public function init():void {
+            associateTag = "sinandstu09-20";
+            /* 			if(Capabilities.languages.toString() == "en-CA" || Capabilities.languages.toString() == "fr-CA"){
+             url="http://ecs.amazonaws.ca/onca/xml";
+             associateTag="sinandstu-20";
+             } else {
+             url="http://ecs.amazonaws.com/onca/xml";
+             associateTag="sinandstu09-20";
+             } */
+
+
+        }
+
+        /* 		public function set keywords(keywords : String) : void {
+         this._keywords = keywords;
+         }
+         */
+
+        private function resultHandler(event:Event):void
+        {
+            var result:XML = new XML(event.target.data);
+            cdImage.source = null;
+            _detailPageUrlString = null;
+            for each (var parent:XML in result.*)
+            {
+                if (parent.localName() == "Items")
+                    for each (var item:XML in parent.*)
+                    {
+                        if (item.localName() == "Item")
+                            for each (var properties:XML in item.*)
+                            {
+                                if (properties.localName() == "MediumImage")
+                                    for each (var properties2:XML in properties.*)
+                                        if (properties2.localName() == "URL") {
+                                            cdImage.source = properties2;
+                                            if (_detailPageUrlString != null)
+                                                break;
+                                        }
+                                if (properties.localName() == "DetailPageURL") {
+                                    _detailPageUrlString = properties;
+                                    if (cdImage.source != null)
+                                        break;
+                                }
+                                if (_detailPageUrlString != null && cdImage.source != null)
+                                    break;
+                            }
+                        if (_detailPageUrlString != null && cdImage.source != null)
+                            break;
+                    }
+                if (_detailPageUrlString != null && cdImage.source != null)
+                    break;
+            }
+
+        }
+
+        private function faultHandler(event:IOErrorEvent):void {
+
+        }
+
+        private function openNewWindow():void {
+            var urlReq:URLRequest = new URLRequest(_detailPageUrlString);
+            navigateToURL(urlReq);
+        }
+
+        public function callAmazon(event:AmazonCallEvent):void {
+            getCovers(event.keywords);
+        }
+
+        public function getCovers(myAlbum:String):void
+        {
+            var request:AmazonRequest = new AmazonRequest();
+            var loader:URLLoader = new URLLoader();
+            var vars:URLVariables = new URLVariables();
+
+            vars.Service = 'AWSECommerceService';
+            vars.Operation = 'ItemSearch';
+            vars.Keywords = myAlbum;
+            vars.Version = "2009-01-06";
+            vars.SearchIndex = "Music";
+            vars.ResponseGroup = "Medium,Images";
+            vars.AssociateTag = associateTag;
+            request.data = vars;
+
+            loader.addEventListener(Event.COMPLETE, resultHandler);
+            loader.addEventListener(IOErrorEvent.IO_ERROR, faultHandler);
+            loader.load(request.urlRequest);
+        }
+
+		]]>
+	</mx:Script>
+
+</mx:VBox>

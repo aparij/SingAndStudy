@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"  creationComplete="init()">
+	<mx:Script>
+		<![CDATA[
+        import mx.events.DynamicEvent;
+       	import flash.filters.GlowFilter;
+
+        [Bindable]
+        public var selectedWord:String = "";
+        public var index:int = -1;
+
+        [Embed("../../../../assets/skins/TextInput_borderSkinError.png")]
+        public var bgError:Class;
+        [Embed("../../../../assets/skins/TextInput_borderSkinCorrect.png")]
+        public var bgCorrect:Class;
+
+
+        private function init():void {
+            textInput.addEventListener(FocusEvent.FOCUS_OUT, checkInput);
+
+        }
+
+        private function checkInput(event:FocusEvent):void {
+
+            if (textInput.text.toLowerCase() != selectedWord.toLowerCase()) {
+				textInput.setStyle("borderSkin",bgError);
+            } else {
+            	textInput.setStyle("borderSkin",bgCorrect);
+            }
+        }
+
+        private function showWord(event:Event):void {
+            if (textInput.text != selectedWord)
+                textInput.text = selectedWord;
+            else
+                textInput.text = "";
+
+            /* 	var hint:String=selectedWord;
+             var myTip:ToolTip; */
+
+
+            // By setting the fourth argument to a non-null value,
+            // this ToolTip is created as an error tip.
+            /*     myTip = ToolTipManager.createToolTip(
+             hint,
+             event.currentTarget.x + event.currentTarget.width,
+             event.currentTarget.y,
+             "errorTipRight"
+             ) as ToolTip;
+             */
+
+        }
+
+        private function jumpToNext(event:Object):void {
+            var jumpEvent:DynamicEvent = new DynamicEvent("JumpToNext", true, false);
+            jumpEvent.index = index;
+            dispatchEvent(jumpEvent);
+            //event.currentTarget.errorString = "Mistake!";
+        }
+
+        public function setFocusOnMe():void {
+            textInput.setFocus();
+        }
+
+		]]>
+	</mx:Script>
+
+	<mx:TextInput id="textInput" maxChars="{selectedWord.length}" enter="jumpToNext(event)" width="{selectedWord.length*9}"/>
+	<mx:Button icon="@Embed('/assets/question22x22.png')"  width="20" height="22"
+			                        	click="showWord(event)" skin="{null}"
+			                        	toolTip="show hidden word"
+	/>
+</mx:HBox>

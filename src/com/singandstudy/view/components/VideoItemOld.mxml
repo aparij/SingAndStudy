@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml"
+	 width="450" height="145" horizontalScrollPolicy="off" verticalScrollPolicy="off" 
+	  mouseChildren="false" buttonMode="true" click="showVideo()"
+	 xmlns:components="com.singandstudy.view.components.*"
+	 >
+	<mx:Script>
+		<![CDATA[
+        import be.boulevart.google.data.GoogleVideo;
+
+        private var nativeWindow:NativeWindow
+        private var video:GoogleVideo;
+        private var loader:Loader //= new SWFLoader();
+        private var newWindow:NativeWindow;
+
+        private function showVideo():void {
+            var options:NativeWindowInitOptions = new NativeWindowInitOptions();
+            options.transparent = false;
+            options.systemChrome = NativeWindowSystemChrome.STANDARD;
+            options.type = NativeWindowType.NORMAL;
+
+            newWindow = new NativeWindow(options);
+            newWindow.title = "VideoViewer";
+            newWindow.visible = true;
+            newWindow.x = 100;
+            newWindow.y = 100;
+            newWindow.width = 800;
+            newWindow.addEventListener(Event.CLOSING, function():void {
+                loader.unloadAndStop(true)
+            })
+            newWindow.height = 600;
+
+            loader = new Loader();
+
+            var mc:MovieClip = new MovieClip()
+            newWindow.stage.addChild(mc);
+            loader.contentLoaderInfo.addEventListener(Event.COMPLETE, onLoad)
+            mc.addChild(loader)
+            loader.load(new URLRequest(data.playUrl));
+        }
+
+        private function onLoad(e:Event):void {
+            loader.visible = true
+            newWindow.stage.align = StageAlign.TOP_LEFT;
+            newWindow.stage.scaleMode = StageScaleMode.NO_SCALE;
+        }
+			
+			
+		]]>
+	</mx:Script>
+	<components:SmoothImage x="10" y="10" source="{data.thumbUrl}" maxHeight="100" maxWidth="145"/>
+	<mx:TextArea top="47" id="txtContent" htmlText="{data.content}" left="164" right="30" textAlign="left" borderStyle="none" fontSize="12" height="76" backgroundAlpha="0.0"/>
+	<mx:Label text="{data.visibleUrl}" textAlign="left" left="10" right="226" bottom="5" id="btnLink" fontWeight="bold"/>
+	<mx:Label text="{'by '+data.author}" textAlign="right" left="226" right="10" bottom="5" id="lblAuthor" fontWeight="bold"/>
+	<mx:TextArea htmlText="{data.title}" fontSize="14" fontWeight="bold" id="lblTitel" top="10" left="164" wordWrap="true" height="33" right="30" borderStyle="none" backgroundAlpha="0.0"/>
+	<mx:HRule left="10" right="10" bottom="1"/>
+	
+</mx:Canvas>

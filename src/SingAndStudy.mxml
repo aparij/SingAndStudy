@@ -1,0 +1,538 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:WindowedApplication
+	 xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute"   backgroundColor="black" width="800" height="500"
+	 applicationComplete="init()" horizontalScrollPolicy="off" verticalScrollPolicy="off"
+	 backgroundGradientColors="[0x000000,0x323232]"
+	 xmlns:components="com.singandstudy.view.components.*"
+	 borderStyle = "none" showTitleBar = "false" showStatusBar = "false"
+	 closing="applicationExit(event)"
+	 >
+    <mx:Script><![CDATA[
+    	import com.singandstudy.view.components.Register;
+    	import com.singandstudy.view.components.Eula;
+    	import com.singandstudy.view.components.About;
+
+        import air.update.ApplicationUpdaterUI;
+        import air.update.events.UpdateEvent;
+
+        import com.singandstudy.Song;
+        import com.singandstudy.model.ModelLocator;
+
+        import mx.controls.Alert;
+        import mx.events.CloseEvent;
+        import mx.managers.PopUpManager;
+        import flash.desktop.NativeApplication;
+        import com.flexspy.FlexSpy;
+
+		import flash.data.EncryptedLocalStore;
+        import flash.desktop.NativeApplication;
+        import flash.events.*;
+        import flash.filesystem.*;
+        import flash.utils.ByteArray;
+        import flash.utils.describeType;
+        import mx.rpc.events.FaultEvent;
+        import mx.rpc.events.ResultEvent;
+        import mx.utils.ObjectProxy;
+
+        [Bindable]
+        public var model:ModelLocator;
+
+        /**
+         * The number of milliseconds in one day
+         */
+        public static const MILLISECONDS_IN_DAY : Number = 86400000;
+
+
+        /**
+         *     Update framework related code
+         *
+         *
+         */
+        // Instantiate the updater
+        private var appUpdater:ApplicationUpdaterUI = new ApplicationUpdaterUI();
+
+        private function checkForUpdate():void {
+            // The code below is a hack to work around a bug in the framework so that CMD-Q still works on MacOS
+            // This is a temporary fix until the framework is updated
+            // See http://www.adobe.com/cfusion/webforums/forum/messageview.cfm?forumid=72&catid=670&threadid=1373568
+            NativeApplication.nativeApplication.addEventListener(Event.EXITING,
+                    function(e:Event):void {
+                        var opened:Array = NativeApplication.nativeApplication.openedWindows;
+                        for (var i:int = 0; i < opened.length; i ++) {
+                            opened[i].close();
+                        }
+                    });
+
+
+            // Configuration stuff - see update framework docs for more details
+            appUpdater.updateURL = "http://www.singandstudy.com/update.xml"; // Server-side XML file describing update
+            appUpdater.isCheckForUpdateVisible = false; // We won't ask permission to check for an update
+            appUpdater.isDownloadUpdateVisible = true;
+            appUpdater.isInstallUpdateVisible = true;
+            appUpdater.isDownloadProgressVisible = true;
+            appUpdater.addEventListener(UpdateEvent.INITIALIZED, onUpdate); // Once initialized, run onUpdate
+            appUpdater.addEventListener(ErrorEvent.ERROR, onError); // If something goes wrong, run onError
+            appUpdater.initialize(); // Initialize the update framework
+        }
+
+        private function onError(event:ErrorEvent):void {
+            Alert.show(event.toString());
+        }
+
+        private function onUpdate(event:UpdateEvent):void {
+            appUpdater.checkNow(); // Go check for an update now
+        }
+
+        // Find the current version for our Label below
+        private function setApplicationVersion():void {
+            var appXML:XML = NativeApplication.nativeApplication.applicationDescriptor;
+            var ns:Namespace = appXML.namespace();
+            model.version = "version " + appXML.ns::version;
+        }
+
+        /**
+         * END of    Update framework related code
+         *
+         *
+         */
+
+
+
+
+        /***
+         *         Init the application
+         *
+         */
+        private function init():void
+        {
+            model = ModelLocator.getInstance();
+            createMenus();
+            setApplicationVersion(); // Find the current version so we can show it below
+            loadPreferences();
+            var nowDate:Date = new Date();
+            if(model.email!=null)
+            	model.isTrial=false;
+            if(model.dateCreated!=null && model.isTrial ){
+            	var now:Number = nowDate.valueOf();
+            	var created:Number = model.dateCreated.valueOf();
+				var millisecondDifference:Number = nowDate.valueOf() - model.dateCreated.valueOf();
+				model.trialDaysLeft = (30 - millisecondDifference / MILLISECONDS_IN_DAY);
+				if(model.trialDaysLeft<=0 || model.trialDaysLeft>30){
+					model.isTrialExpired=true;
+					model.trialDaysLeft = 0;
+					preventUsage();
+				}else if (model.trialDaysLeft<7)
+					register(true);
+				model.addEventListener("enableMain",function():void{ mainView.enabled=true;})
+            }else if (model.dateCreated==null){
+            	var eula:Eula = PopUpManager.createPopUp(this, Eula, true) as Eula;
+            	PopUpManager.centerPopUp(eula);
+            }
+            model.addEventListener("addSet", addSet);
+
+            //NativeApplication.nativeApplication.addEventListener(Event.EXITING, applicationExit);
+
+
+        }
+        private function preventUsage():void{
+        	mainView.enabled=!model.isTrialExpired;
+			register(false);
+        }
+		private function loadPreferences():void{
+            var bytes:ByteArray=EncryptedLocalStore.getItem("preferences");
+            if (bytes!=null){
+            	var prefs:Object = bytes.readObject();
+            	var props:Object = prefs['Application'];
+            	for (var property:Object in props){
+            		switch(property){
+            		case 'fontSize':
+            			this.setStyle("fontSize", props[property]);
+            			break;
+            		case 'x':
+            			this.nativeWindow.x = props[property]
+            			break;
+            		case 'y':
+            			this.nativeWindow.y = props[property]
+            			break;
+            		case 'dateCreated':
+		    			model.dateCreated = props[property];
+            			break;
+            		case 'email':
+            			model.email = props[property];
+            			break;
+            		case 'licenseKey':
+            			model.licenseKey = props[property];
+            			break;
+            		default:
+            			this[property] = props[property];
+            		}
+            	}
+            }
+		}
+        public function createMenus():void {
+
+            var baseMenu:NativeMenu = new NativeMenu();
+            var fileMenu:NativeMenu = new NativeMenu();
+            var actionMenu:NativeMenu = new NativeMenu();
+            var helpMenu:NativeMenu = new NativeMenu();
+            var studyMenu:NativeMenu = new NativeMenu();
+            //file
+            var menuItemSave:NativeMenuItem = new NativeMenuItem("Save");
+            var menuItemExport:NativeMenuItem = new NativeMenuItem("Export Study Set");
+            var menuItemImport:NativeMenuItem = new NativeMenuItem("Import Study Set");
+            var menuItemAdd:NativeMenuItem = new NativeMenuItem("Add song");
+            var menuItemQuit:NativeMenuItem = new NativeMenuItem("Quit");
+			//Action
+            var menuItemHideYoutube:NativeMenuItem = new NativeMenuItem("Hide Youtube");
+            var menuItemDecreaseFont:NativeMenuItem = new NativeMenuItem("Decrease Font");
+            var menuItemIncreaseFont:NativeMenuItem = new NativeMenuItem("Increase Font");
+            var menuItemSavePDF:NativeMenuItem = new NativeMenuItem("Save PDF");
+            //Help
+            var menuItemAbout:NativeMenuItem = new NativeMenuItem("About");
+            var menuItemHowto:NativeMenuItem = new NativeMenuItem("Online Help");
+            var menuItemUpdate:NativeMenuItem = new NativeMenuItem("Check for Update");
+            var menuItemRegister:NativeMenuItem = new NativeMenuItem("Register");
+			//Study
+			var menuItemEnglish:NativeMenuItem = new NativeMenuItem("Add English set");
+			var menuItemFrench:NativeMenuItem = new NativeMenuItem("Add French set");
+			var menuItemSpanish:NativeMenuItem = new NativeMenuItem("Add Spanish set");
+			var menuItemGerman:NativeMenuItem = new NativeMenuItem("Add German set");
+
+            fileMenu.addItemAt(menuItemAdd, 0);
+            fileMenu.addItemAt(menuItemSave, 1);
+            fileMenu.addItemAt(menuItemImport, 2);
+            fileMenu.addItemAt(menuItemExport, 3);
+            fileMenu.addItemAt(menuItemQuit, 4);
+            actionMenu.addItemAt(menuItemHideYoutube, 0);
+            actionMenu.addItemAt(menuItemDecreaseFont, 1);
+            actionMenu.addItemAt(menuItemIncreaseFont, 2);
+            actionMenu.addItemAt(menuItemSavePDF, 3);
+            helpMenu.addItemAt(menuItemAbout, 0);
+            helpMenu.addItemAt(menuItemHowto, 1);
+            helpMenu.addItemAt(menuItemUpdate, 2);
+            helpMenu.addItemAt(menuItemRegister,3);
+
+            studyMenu.addItemAt(menuItemEnglish,0);
+            studyMenu.addItemAt(menuItemFrench,1);
+            studyMenu.addItemAt(menuItemSpanish,2);
+            studyMenu.addItemAt(menuItemGerman,3);
+
+
+            baseMenu.addSubmenu(fileMenu, "File");
+            baseMenu.addSubmenu(actionMenu, "Action");
+            baseMenu.addSubmenu(studyMenu,"Study Sets");
+            baseMenu.addSubmenu(helpMenu, "Help");
+
+            menuItemAbout.addEventListener(Event.SELECT, menuSelectHandler);
+            menuItemHowto.addEventListener(Event.SELECT, menuSelectHandler);
+            menuItemUpdate.addEventListener(Event.SELECT, menuSelectHandler);
+            menuItemSave.addEventListener(Event.SELECT, menuSelectHandler);
+            menuItemExport.addEventListener(Event.SELECT, menuSelectHandler);
+            menuItemImport.addEventListener(Event.SELECT, menuSelectHandler);
+            menuItemAdd.addEventListener(Event.SELECT, menuSelectHandler);
+            menuItemQuit.addEventListener(Event.SELECT, menuSelectHandler);
+            menuItemHideYoutube.addEventListener(Event.SELECT, menuSelectHandler);
+            menuItemIncreaseFont.addEventListener(Event.SELECT, menuSelectHandler);
+            menuItemDecreaseFont.addEventListener(Event.SELECT, menuSelectHandler);
+            menuItemSavePDF.addEventListener(Event.SELECT, menuSelectHandler);
+            menuItemRegister.addEventListener(Event.SELECT, menuSelectHandler);
+            //Study sets
+            menuItemEnglish.addEventListener(Event.SELECT , menuSelectHandler);
+            menuItemFrench.addEventListener(Event.SELECT , menuSelectHandler);
+            menuItemSpanish.addEventListener(Event.SELECT , menuSelectHandler);
+            menuItemGerman.addEventListener(Event.SELECT , menuSelectHandler);
+
+
+            if (NativeApplication.supportsMenu)
+            {
+                this.nativeApplication.menu = baseMenu;
+            }
+
+            if (NativeWindow.supportsMenu)
+            {
+                this.nativeWindow.menu = baseMenu;
+            }
+        }
+
+        public function menuSelectHandler(event:Event):void {
+            switch (event.target.label) {
+                case "Export Study Set":
+                    exportXML();
+                    break;
+                case "Import Study Set":
+                    importXML();
+                    break;
+                case "Save" :
+                    mainView.saveXML();
+                    break;
+                case "Add song" :
+                    mainView.songDG.handleAddRow();
+                    break;
+                case "Online Help" :
+                    openHowtoPage();
+                    break;
+                case "About" :
+                    openAbout();
+                    break;
+                case "Quit" :
+					var closing:Event = new Event(Event.CLOSING,true,true);
+					dispatchEvent(closing);
+                    break;
+                case "Hide Youtube" :
+                    mainView.hideYoutube();
+                    break;
+                case "Increase Font" :
+                    increaseFont();
+                    break;
+                case "Decrease Font" :
+                    decreaseFont();
+                    break;
+                case "Save PDF" :
+                    mainView.savePDF();
+                    break;
+                case "Check for Update" :
+                    checkForUpdate();
+                    break;
+                case "Register":
+                	register(true);
+                	break;
+                case "Add English set":
+                	model.setChoice='English'
+                	addSet();
+                	break;
+
+                case "Add French set":
+                	model.setChoice='French'
+                	addSet();
+                	break;
+                case "Add Spanish set":
+               		model.setChoice='Spanish'
+                	addSet();
+                	break;
+                case "Add German set":
+                	model.setChoice='German'
+                	addSet();
+                	break
+                default :
+            }
+        }
+		public function addSet(event:* = null):void{
+                var url:String = "http://www.singandstudy.com/sets/";
+                if (model != null) {
+                	url=url+model.setChoice+"Set.sas";
+                    studySetysService.url = url;
+                    studySetysService.send();
+                }
+		}
+        private function resultStudySetHandler(event:ResultEvent):void
+        {
+			var tempSong:Song;
+			for each (var item:ObjectProxy in event.result.songs.song)
+            {
+                try {
+                    tempSong = new Song("", "", "", "", "", "");
+                    if (item.songName != null)
+                    	tempSong.songName = item.songName;
+                    if (item.artist != null)
+	                    tempSong.artist = item.artist;
+	                if (item.album != null)
+                    	tempSong.album = item.album;
+                    if (item.lyricsOrigin != null)
+                    	tempSong.lyricsOrigin = item.lyricsOrigin;
+                    if (item.lyricsTranslate != null)
+                   	    tempSong.lyricsTranslate = item.lyricsTranslate;
+                    if (item.videoId != null)
+                        tempSong.videoId = item.videoId;
+                    model.songsAC.addItem(tempSong);
+                    tempSong = null;
+                }
+                catch (erObject:Error) {
+                    Alert.show("Illegal data format");
+                    return;
+                }
+
+            }
+            model.dataChanged = true;
+
+        }
+
+
+        private function faultStudySetHandler(event:FaultEvent):void {
+
+        }
+
+		public function register(isClosable:Boolean):void{
+			//EncryptedLocalStore.reset();
+			var register:Register = PopUpManager.createPopUp(this, Register, false) as Register;
+			register.isClosable=isClosable;
+            register.width = 300;
+            register.height = 200;
+            PopUpManager.centerPopUp(register);
+
+		}
+        public function applicationExit(event:Event):void {
+			//if( event != null)
+			event.preventDefault();
+			savePreferences();
+            if (model.dataChanged) {
+            	event.preventDefault();
+                Alert.buttonWidth = 100;
+                Alert.yesLabel = "Yes";
+                Alert.noLabel = "No";
+                Alert.cancelLabel = "Cancel";
+                Alert.show("Do you want to save your changes?", "Save Changes", 1 | 2 | 8, this, alertClickHandler);
+            } else {
+                //var exitingEvent:Event = new Event(Event.EXITING, false, true);
+                //NativeApplication.nativeApplication.dispatchEvent(exitingEvent);
+                //if (!exitingEvent.isDefaultPrevented()) {
+                //    NativeApplication.nativeApplication.exit();
+               // }
+               this.nativeWindow.close();
+            }
+
+        }
+		private function savePreferences():void{
+ 			EncryptedLocalStore.removeItem("preferences");
+ 			var prefs:Object=new Object();
+ 			if(model.dateCreated == null)
+ 				model.dateCreated = new Date();
+			prefs['Application']={
+									'width':this.width,
+									'height':this.height,
+									'fontSize' : this.getStyle("fontSize"),
+									'x': this.nativeWindow.x,
+									'y': this.nativeWindow.y,
+									'dateCreated': model.dateCreated,
+									'licenseKey' : model.licenseKey,
+									'email' : model.email
+									}
+ 			var bytes:ByteArray=new ByteArray();
+            bytes.writeObject(prefs);
+            EncryptedLocalStore.setItem("preferences", bytes);
+
+		}
+        // Event handler function for displaying the selected Alert button.
+        private function alertClickHandler(event:CloseEvent):void {
+            if (event.detail == Alert.YES){
+                mainView.saveXML();
+                this.nativeWindow.close();
+            }else if (event.detail == Alert.NO){
+            	this.nativeWindow.close();
+                //var exitingEvent:Event = new Event(Event.EXITING, false, true);
+                //NativeApplication.nativeApplication.dispatchEvent(exitingEvent);
+                //if (!exitingEvent.isDefaultPrevented()) {
+                //    NativeApplication.nativeApplication.exit();
+               // }
+
+            }
+        }
+
+        // open a browse window
+        protected function importXML():void {
+            var file:File = new File();
+            file.addEventListener(Event.SELECT, onFileSelected);
+            file.browseForOpen("Choose Sing and Study data file");
+        }
+
+        // called when the user has selected a file to import
+        protected function onFileSelected(e:Event):void {
+            var selectedFile:File = (e.currentTarget) as File;
+            var stream:FileStream = new FileStream();
+            stream.open(selectedFile, FileMode.READ);
+            try {
+                var importObj:XML = XML(stream.readUTFBytes(stream.bytesAvailable));
+            } catch (erObject:Error) {
+                Alert.show("Illegal data format");
+                return;
+
+            }
+
+            stream.close();
+            loadXML(importObj);
+/*             var tempSong:Song;
+            for each (var item:XML in importObj.song)
+            {
+                try {
+                    tempSong = new Song("", "", "", "", "", "");
+                    tempSong.songName = item.songName;
+                    tempSong.artist = item.artist;
+                    tempSong.album = item.album;
+                    tempSong.lyricsOrigin = item.lyricsOrigin;
+                    tempSong.lyricsTranslate = item.lyricsTranslate;
+                    tempSong.videoId = item.videoId;
+                    model.songsAC.addItem(tempSong);
+                    tempSong = null;
+                }
+                catch (erObject:Error) {
+                    Alert.show("Illegal data format");
+                    return;
+                }
+
+            }
+            model.dataChanged = true; */
+        }
+		private function loadXML(importObj:XML):void{
+			var tempSong:Song;
+            for each (var item:XML in importObj.song)
+            {
+                try {
+                    tempSong = new Song("", "", "", "", "", "");
+                    tempSong.songName = item.songName;
+                    tempSong.artist = item.artist;
+                    tempSong.album = item.album;
+                    tempSong.lyricsOrigin = item.lyricsOrigin;
+                    tempSong.lyricsTranslate = item.lyricsTranslate;
+                    tempSong.videoId = item.videoId;
+                    model.songsAC.addItem(tempSong);
+                    tempSong = null;
+                }
+                catch (erObject:Error) {
+                    Alert.show("Illegal data format");
+                    return;
+                }
+
+            }
+            model.dataChanged = true;
+		}
+
+        private function exportXML():void {
+            var file:File = new File();
+            file.addEventListener(Event.SELECT, onSaveFileSelected);
+            file.browseForSave("Save the exported file");
+        }
+
+        protected function onSaveFileSelected(e:Event):void {
+            var file:File = e.currentTarget as File;
+            mainView.saveFile(file);
+            Alert.show("Sing and Study data has been  saved to " + file.nativePath + " ");
+        }
+
+        private function increaseFont():void {
+            var currSize:int = this.getStyle("fontSize");
+            this.setStyle("fontSize", currSize + 3);
+        }
+        private function decreaseFont():void {
+            var currSize:int = this.getStyle("fontSize");
+            this.setStyle("fontSize", currSize -3);
+        }
+
+        private function openHowtoPage():void {
+            var urlReq:URLRequest = new URLRequest("http://www.singandstudy.com/howtouse.html");
+            navigateToURL(urlReq);
+        }
+
+        private function openAbout():void {
+            var about:About = PopUpManager.createPopUp(this, About, false) as About;
+            about.width = 300;
+            about.height = 200;
+            PopUpManager.centerPopUp(about);
+        }
+
+        ]]></mx:Script>
+         <components:MainView id="mainView" />
+         <mx:HTTPService id="studySetysService"
+			useProxy="false" method="get" result="resultStudySetHandler(event);" fault="faultStudySetHandler(event);" >
+		</mx:HTTPService>
+         <mx:Style source="SunNight.css"/>
+	<!--<mx:Button id="btnFlexSpy" label="FlexSpy" click="FlexSpy.show()" />-->
+</mx:WindowedApplication>

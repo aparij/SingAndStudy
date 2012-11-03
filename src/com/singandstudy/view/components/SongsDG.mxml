@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Box
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:Components="com.singandstudy.view.components.*"
+	horizontalScrollPolicy="off" verticalScrollPolicy="off"
+	creationComplete="init()" width="100%"
+	>
+		  <mx:DataGrid id="songsDataGrid"
+	    			 dataProvider="{model.songsAC}"
+	    			 editable="false"
+	    			 sortableColumns="true"
+	    			 doubleClickEnabled="true"
+	    			 itemClick="itemClickEvent(event);"
+	    			 itemEditBeginning="checkEdit(event);"
+	    			 itemEditEnd="editEnd(event);"
+	    			 headerRelease="dataGrid_headerRelease(event)"
+                     width="100%"
+
+	 				>
+	      <mx:columns>
+	        <mx:DataGridColumn headerText="Song"  dataField="songName"/>
+	        <mx:DataGridColumn headerText="Artist" dataField="artist" />
+	        <mx:DataGridColumn headerText="Album"  dataField="album"/>
+   	        <mx:DataGridColumn width="43" editable="false" id="videoId" dataField="videoId" headerText="">
+	                <mx:itemRenderer >
+	                    <mx:Component  >
+	                    	<mx:HBox width="100%" height="100%" verticalScrollPolicy="off" horizontalScrollPolicy="off">
+
+
+	                        <!-- The second parameter of the Event constructor (true) indicates that the event should "bubble".
+	                            This allows us to listen for the deleteRow event on the DataGrid (see init function) -->
+	                        <mx:Button icon="@Embed('/assets/youtube42x17.png')"  height="15" width="43"
+	                        	click="dispatchEvent(new Event('loadVideo', true,true))" skin="{null}"
+	                        	toolTip="Load video" visible="{data.videoId.length==0 ? false:true }"
+	                        	enabled="{data.videoId.length==0 ? false:true }"
+	                        	>
+								</mx:Button>
+							</mx:HBox>
+	                    </mx:Component>
+	                </mx:itemRenderer>
+	          </mx:DataGridColumn>
+
+	         <mx:DataGridColumn width="35" editable="false" sortable="false"  id="removeIcon">
+	                <mx:itemRenderer >
+	                    <mx:Component>
+	                        <!-- The second parameter of the Event constructor (true) indicates that the event should "bubble".
+	                            This allows us to listen for the deleteRow event on the DataGrid (see init function) -->
+	                        <mx:Button icon="@Embed('/assets/trash_16x16.gif')" width="15" height="16"
+	                        	click="dispatchEvent(new Event('deleteRow', true,true))" skin="{null}"
+	                        	toolTip="Remove song"
+	                        	/>
+	                    </mx:Component>
+	                </mx:itemRenderer>
+	          </mx:DataGridColumn>
+	      </mx:columns>
+	    </mx:DataGrid>
+
+	    <mx:Script><![CDATA[
+            import com.singandstudy.Song;
+            import com.singandstudy.controller.events.AmazonCallEvent;
+            import com.singandstudy.controller.events.ItemClickedEvent;
+            import com.singandstudy.controller.events.PlayBookmarkEvent;
+            import com.singandstudy.model.ModelLocator;
+
+            import mx.collections.ArrayCollection;
+            import mx.core.EventPriority;
+            import mx.events.DataGridEvent;
+            import mx.events.ListEvent;
+
+            [Bindable]
+            public var model:ModelLocator;
+            [Bindable]
+            public var stopAmazonCalls:Boolean = false;
+            //private var descending:Boolean=true;
+
+
+            private function init():void
+            {
+                model = ModelLocator.getInstance();
+                songsDataGrid.addEventListener("deleteRow", deleteRowHandler);
+                songsDataGrid.addEventListener("loadVideo", loadVideo);
+                songsDataGrid.addEventListener(ListEvent.ITEM_DOUBLE_CLICK, onItemDoubleClick,
+                        false, EventPriority.DEFAULT_HANDLER);
+                songsDataGrid.addEventListener(ListEvent.ITEM_EDIT_END, editEnd,
+                        false, EventPriority.DEFAULT_HANDLER);
+                removeIcon.addEventListener(MouseEvent.CLICK, mouseClickHandler);
+            }
+
+            /**
+             *    When user clicks on Garbage Bin icon to delete a row , prevent it from propagating
+             *   item clicked event
+             *
+             *
+             */
+
+            public function mouseClickHandler(event:MouseEvent):void {
+                event.stopImmediatePropagation();
+            }
+
+            private function onItemDoubleClick(event:ListEvent):void {
+                if (event.isDefaultPrevented()) {
+                    return;
+                }
+                songsDataGrid.editable = true;
+                model.songsAC.disableAutoUpdate();
+            }
+
+            /**
+             *  Handle click events on dataGrid cell
+             *  copy the changes to the previous lyrics before
+             *  reading the lyrics and setting them in the text area
+             *
+             */
+            private function itemClickEvent(event:ListEvent):void {
+                //when last row is deleted , there is an error with index out of bounds
+                if (event.rowIndex < model.songsAC.length) {
+                    var eventOriginChangeObj:ItemClickedEvent = new ItemClickedEvent(ItemClickedEvent.ITEM_CLICKED, event.rowIndex);
+                    dispatchEvent(eventOriginChangeObj);
+                    if (model.currentRow != event.rowIndex) {
+                        var keywords:String = "";
+                        if (model.songsAC.getItemAt(event.rowIndex).artist.length != 0 && model.songsAC.getItemAt(event.rowIndex).album.length != 0) {
+                            keywords = model.songsAC.getItemAt(event.rowIndex).artist + ' '
+                            model.songsAC.getItemAt(event.rowIndex).album;
+                        } else {
+                            keywords = model.songsAC.getItemAt(event.rowIndex).songName + ' ' +
+                                       model.songsAC.getItemAt(event.rowIndex).artist + ' '
+                            model.songsAC.getItemAt(event.rowIndex).album;
+                        }
+                        if (keywords != "  " && keywords != ' ' && !stopAmazonCalls) {
+                            var eventObj:AmazonCallEvent = new AmazonCallEvent(AmazonCallEvent.AMAZON_CALL, keywords);
+                            dispatchEvent(eventObj);
+                        }
+                    }
+                    model.currentRow = event.rowIndex;
+                    model.currentItem = event.itemRenderer.data as Song;
+                }
+            }
+
+            public function handleAddRow():void {
+                var temp:Array = clone(model.songsAC.toArray());
+                model.songsAC = new ArrayCollection(temp);
+                songsDataGrid.dataProvider = model.songsAC;
+
+                var obj:Song = new Song("", "", "", "", "", "");
+                dispatchEvent(new Event("savePanelsEvent"));
+                dispatchEvent(new Event("clearTextAreasEvent"));
+                model.songsAC.addItemAt(obj, 0);
+                model.currentItem = obj;
+                model.currentRow = 0;
+                songsDataGrid.editedItemPosition = {rowIndex: 0, columnIndex: 0};
+                songsDataGrid.editable = true;
+                model.dataChanged = true;
+
+            }
+
+            private function clone(source:Object):*
+            {
+                var myBA:ByteArray = new ByteArray();
+                myBA.writeObject(source);
+                myBA.position = 0;
+                return(myBA.readObject());
+            }
+
+
+            private function checkEdit(e:DataGridEvent):void
+            {
+
+
+            }
+
+
+            private function editEnd(e:DataGridEvent):void {
+
+                //e.preventDefault();
+                model.dataChanged = true;
+                if (e.columnIndex == 0 && model.songsAC[e.rowIndex].artist.length == 0) {
+                    songsDataGrid.editedItemPosition = {rowIndex: e.rowIndex, columnIndex: 1};
+                    songsDataGrid.editable = true;
+                    model.songsAC.disableAutoUpdate();
+                } else if (e.columnIndex == 1 && model.songsAC[e.rowIndex].album.length == 0) {
+                    songsDataGrid.editedItemPosition = {rowIndex: e.rowIndex, columnIndex: 2};
+                    songsDataGrid.editable = true;
+                } else if (e.columnIndex == 2 && model.songsAC.length == (e.rowIndex + 1)) {
+                    //songsDataGrid.dataProvider.addItem(new Song("","","","","","" ));
+                    model.songsAC.addItem(new Song("", "", "", "", "", ""));
+                    songsDataGrid.sortableColumns = true;
+                    model.songsAC.enableAutoUpdate();
+                } else {
+                    songsDataGrid.editable = false;
+                    model.songsAC.enableAutoUpdate();
+
+                }
+            }
+
+            private function deleteRowHandler(event:Event):void
+            {
+                var originalSelectedIndex:int = songsDataGrid.selectedIndex;
+                model.songsAC.removeItemAt(originalSelectedIndex);
+                model.currentItem = null;
+                //last row was deleted
+                if ((originalSelectedIndex == model.songsAC.length) && model.songsAC.length != 0) {
+                    model.currentRow = originalSelectedIndex - 1;
+                } else {
+                    model.currentRow = originalSelectedIndex;
+                }
+
+                dispatchEvent(new Event("clearTextAreasEvent"));
+                if (model.songsAC.length != 0) {
+                    var eventOriginChangeObj:ItemClickedEvent = new ItemClickedEvent(ItemClickedEvent.ITEM_CLICKED, model.currentRow);
+                    dispatchEvent(eventOriginChangeObj);
+                    model.currentItem = model.songsAC[model.currentRow] as Song;
+                } else {
+
+                }
+                model.dataChanged = true;
+            }
+
+            private function loadVideo(event:Event):void {
+                dispatchEvent(new PlayBookmarkEvent(PlayBookmarkEvent.PLAY_BOOKMARK_EVENT, model.songsAC[songsDataGrid.selectedIndex].videoId));
+            }
+
+            /**
+             *    When sorting event occurs
+             *
+             **/
+            private function dataGrid_headerRelease(evt:DataGridEvent):void {
+
+                dispatchEvent(new Event("savePanelsEvent"));
+                model.dataChanged = true;
+
+
+                //descending = !descending;
+            }
+
+            ]]></mx:Script>
+</mx:Box>

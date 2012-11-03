@@ -1,0 +1,179 @@
+<?xml version="1.0" ?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" creationComplete="init()">
+
+    <mx:PopUpButton id="popSource"  creationComplete="initMenu(event);" width="100" openAlways="true"/>
+    <mx:Image source="@Embed('/assets/right_arrow32x32.png')" />
+    <mx:PopUpButton id="popDestination"  creationComplete="initMenu(event);" width="100" openAlways="true"/>
+    <mx:Button click="clickHandlerTranslate(event);"
+        toolTip="Translate using Google"
+        icon="@Embed('/assets/translate32x32.png')" width="36" height="36"
+        />
+
+
+    <mx:Script><![CDATA[
+        import mx.controls.Menu;
+        import mx.events.MenuEvent;
+        import com.adobe.serialization.json.JSON;
+        import com.singandstudy.model.ModelLocator;
+        import mx.rpc.http.HTTPService;
+        import mx.rpc.events.FaultEvent;
+        import mx.rpc.events.ResultEvent;
+
+
+        //config constants
+        private var googleURL:String = 'http://ajax.googleapis.com/ajax/services/language/translate';
+        private var versionG:String = '1.0';
+        private var format:String = 'text';
+        private var sourceID:String = "en";
+        private var destID:String = "en";
+
+        private var tempOriginText:String="";
+
+        [Bindable]
+        public var model:ModelLocator;
+
+        private function init():void{
+            model = ModelLocator.getInstance();
+        }
+
+        private function initMenu(ev:Event):void {
+            var menu:Menu = new Menu();
+            var dp:Object = [
+                {
+                    label:"English",
+                    data:"en"
+                },
+                {
+                    label:"Spanish",
+                    data:"es"
+                },
+                {
+                    label:"French",
+                    data:"fr"
+                },
+                {
+                    label:"Italian",
+                    data:"it"
+                },
+                {
+                    label:"Portuguese",
+                    data:"pt"
+                },
+                {
+                    label:"German",
+                    data:"de"
+                },
+                {
+                    label:"Russian",
+                    data:"ru"
+                },
+                {
+                    label:"Arabic",
+                    data:"ar"
+                },
+                {
+                    label:"Chinese",
+                    data:"zh"
+                },
+                {
+                    label:"Hebrew",
+                    data:"he"
+                },
+                {
+                    label:"Japanese",
+                    data:"ja"
+                },
+                {
+                    label:"Korean",
+                    data:"ko"
+                }
+            ]
+            menu.dataProvider = dp;
+            menu.selectedIndex = 0;
+            if (ev.target.id == "popSource") {
+                menu.addEventListener(MenuEvent.ITEM_CLICK, popSourceHandler);
+                popSource.addEventListener(MenuEvent.ITEM_CLICK, popSourceHandler);
+
+            }
+            else {
+                menu.addEventListener(MenuEvent.ITEM_CLICK, popDestHandler);
+                popDestination.addEventListener(MenuEvent.ITEM_CLICK, popDestHandler);
+            }
+            ev.target.popUp = menu;
+            ev.target.label = menu.dataProvider[0].label;
+        }
+
+        //on source button dropdown select
+        private function popSourceHandler(ev:MenuEvent):void {
+            popSource.label = ev.item.label;
+            sourceID = ev.item.data;
+        }
+
+
+
+        //on destination button dropdown select
+        private function popDestHandler(ev:MenuEvent):void {
+            popDestination.label = ev.item.label;
+            destID = ev.item.data;
+        }
+        //call http service and send query to google
+        private function newQuery(q:String, lang1:String, lang2:String):void {
+                var service:HTTPService = new HTTPService();
+                service.method = "POST";
+                service.url = googleURL;
+                service.request.v = versionG;
+                service.resultFormat = format;
+                service.request.q = q;
+                service.request.langpair = lang1 + "|" + lang2;
+
+                service.addEventListener(ResultEvent.RESULT, onServerResponse);
+                service.addEventListener(FaultEvent.FAULT, faultGoogleHandler);
+                service.send();
+         }
+
+         //results from google API
+         private function onServerResponse(event:ResultEvent):void {
+             try {
+                    var tempData:String = String(event.result);
+                    var feed:Object = JSON.decode(tempData);
+                    if (feed.responseData != null){
+
+
+                        if (model.currentRow != -1)
+                        {
+                            model.songsAC[model.currentRow].lyricsTranslate = feed.responseData.translatedText;
+
+                        }
+                        dispatchEvent(new Event("setSongTranslation",true,true));
+                        translationTextChange();
+                    }
+                    //model.songsAC[model.currentRow].lyricsTranslate= feed.responseData.translatedText;
+
+                }
+                catch(ignored:Error) {
+
+              }
+          }
+
+        public function clickHandlerTranslate(ev:MouseEvent):void {
+            if (model.songsAC[model.currentRow]!="" || model.songsAC[model.currentRow]=="" && model.originTextChanged) {
+            	dispatchEvent(new Event("setOriginText",true,true));
+                newQuery(tempOriginText, sourceID, destID);
+            }
+        }
+
+        private function faultGoogleHandler(event:FaultEvent):void {
+
+        }
+
+        private function translationTextChange():void {
+                model.translationTextChanged = true;
+                model.dataChanged = true;
+        }
+
+        public function setOriginText(text:String):void{
+			tempOriginText = text;
+        }
+
+    ]]></mx:Script>
+</mx:HBox>

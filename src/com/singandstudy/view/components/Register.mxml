@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml"
+		 creationComplete="init()" styleName="About"
+		 >
+
+	<mx:Script>
+		<![CDATA[
+        import com.singandstudy.model.ModelLocator;
+        import mx.validators.Validator;
+        import mx.managers.PopUpManager;
+        import mx.events.ValidationResultEvent;
+
+		[Bindable] public var isClosable:Boolean=true;
+        [Bindable] public var model:ModelLocator;
+		[Bindable] public var formIsValid:Boolean = false;
+		private var focussedFormControl:DisplayObject;
+
+        private function init():void {
+            model = ModelLocator.getInstance();
+            email.text=model.email;
+            key.text = model.licenseKey;
+        }
+
+        private function close(event:* = null):void {
+            PopUpManager.removePopUp(this);
+        }
+        private function register():void{
+			if(formIsValid){
+				if(validKey()){
+					model.email = email.text;
+					model.isTrial = false;
+					model.isTrialExpired = false;
+					model.licenseKey = key.text;
+					model.dispatchEvent(new Event("enableMain"));
+					close();
+				}
+			}
+        }
+        private function validateForm(event:Event=null):void
+        {
+             formIsValid = true;
+             validate(emV);
+		}
+        private function validate(validator:Validator):Boolean
+        {
+            var validatorSource:DisplayObject = validator.source as DisplayObject;
+            var suppressEvents:Boolean = (validatorSource != focussedFormControl);
+            var validationEvent:ValidationResultEvent = validator.validate(null, suppressEvents);
+            var currentControlIsValid:Boolean = (validationEvent.type == ValidationResultEvent.VALID);
+            formIsValid = formIsValid && currentControlIsValid;
+            return currentControlIsValid;
+        }
+		private function validKey():Boolean{
+			if (key.text.indexOf('SS')!=-1 &&  key.text.indexOf('PA')!=-1 && key.text.indexOf('19')!=-1 )
+				return true;
+			else
+				return false;
+		}
+		private function buy():void{
+			navigateToURL(new URLRequest('http://www.singandstudy.com/buy.html'));
+			//EncryptedLocalStore.reset();
+		}
+
+		]]>
+	</mx:Script>
+	<mx:EmailValidator id="emV" source="{email}" property="text"/>
+
+	<mx:Text text="{model.isTrialExpired?'Trial Expired!': 'Trial expires in ' + model.trialDaysLeft + ' days' }"
+			 fontSize="15" includeInLayout="{model.isTrial}" visible="{model.isTrial}" y="1" x="50"/>
+	<mx:Text text="Registered Version"
+			 fontSize="15" includeInLayout="{!model.isTrial}" visible="{!model.isTrial}" y="1" x="60"/>
+
+
+	<mx:Form y="20" x="4">
+		<mx:FormItem label="Email:">
+			<mx:TextInput id="email" change="validateForm(event);"/>
+		</mx:FormItem>
+		<mx:FormItem label="License Text:">
+			<mx:TextInput id="key"/>
+		</mx:FormItem>
+	</mx:Form>
+	<mx:Button label="Buy Now" click="buy()" y="100" x="60"/>
+	<mx:Button label="Register" click="register()" y="100" x="160"/>
+	<mx:Button label="Close" click="close()" visible="{isClosable}" includeInLayout="{isClosable}" y="140" x="100"/>
+
+
+
+</mx:Canvas>

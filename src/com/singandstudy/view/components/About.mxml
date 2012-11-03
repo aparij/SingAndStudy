@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml"
+		 creationComplete="init()" styleName="About"
+		 horizontalScrollPolicy="off"
+		 label="absolut"
+		 >
+
+	<mx:Script>
+		<![CDATA[
+        import com.singandstudy.model.ModelLocator;
+
+        import mx.managers.PopUpManager;
+
+        [Bindable]
+        public var model:ModelLocator;
+
+
+        private function init():void {
+            model = ModelLocator.getInstance();
+        }
+
+        private function close(event:* = null):void {
+            PopUpManager.removePopUp(this);
+        }
+		]]>
+	</mx:Script>
+	<mx:Label text="{'Sing and Study '}" fontSize="14" fontWeight="bold" x="80" y="5"/>
+	<mx:Label text="{model.version}" fontSize="11"   x="85" y="20"/>
+	<mx:Label text="{!model.isTrial ?
+							'user: '+ model.email+'   key: '+ model.licenseKey :
+							( model.trialDaysLeft==0 ? '                              Trial expired':
+							'                      Trial expires in ' + model.trialDaysLeft + ' days' ) }"
+			  x="1" y="32" />
+
+    <mx:LinkButton label="www.singandstudy.com" click="navigateToURL(new URLRequest('http://www.singandstudy.com'))"
+    			    styleName="AboutLinkButton"  x="80" y="40"/>
+	<mx:Form verticalGap="-4"  y="50" x="0">
+		<mx:FormItem label="Created by Alexander Parij:">
+			<mx:LinkButton label="www.AlexParij.com" click="navigateToURL(new URLRequest('http://www.alexparij.com'))" styleName="AboutLinkButton" />
+		</mx:FormItem>
+		<mx:FormItem label="Songs lyrics provided by:">
+			<mx:LinkButton label="www.lyricsfly.com" click="navigateToURL(new URLRequest('http://www.lyricsfly.com'))" styleName="AboutLinkButton" />
+		</mx:FormItem>
+		<mx:FormItem label="Flex theme inspired by:">
+			<mx:LinkButton label="www.scalenine.com" click="navigateToURL(new URLRequest('http://www.scalenine.com'))" styleName="AboutLinkButton" />
+		</mx:FormItem>
+	</mx:Form>
+
+	<mx:HBox width="64" x="70" y="54">
+	</mx:HBox>
+	<mx:Button label="Close" click="close()"  width="74" x="104" y="150"/>
+
+
+</mx:Canvas>

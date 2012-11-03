@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="300" height="300" styleName="About" >
+	<mx:Script>
+		<![CDATA[
+
+			import mx.managers.PopUpManager;
+			import com.singandstudy.model.ModelLocator;
+
+			[Bindable] public var selectedItem:Object;
+            [Bindable] public var model:ModelLocator;
+
+			public function proceed(event:*):void{
+				model = ModelLocator.getInstance();
+				if (selectedItem !=null && selectedItem.data != 'None'){
+					model.setChoice = selectedItem.data;
+					model.dispatchEvent(new Event('addSet',true,true));
+				}
+				PopUpManager.removePopUp(this);
+			}
+
+		]]>
+	</mx:Script>
+
+    <mx:Model id="sets">
+      <states>
+        <state label="None" data="None"/>
+        <state label="English Set" data="English"/>
+        <state label="French Set" data="French"/>
+        <state label="Spanish Set" data="Spanish"/>
+        <state label="German Set" data="German"/>
+
+      </states>
+    </mx:Model>
+	<mx:Text text="Welcome to Sing and Study" x="40" y="5" fontSize="13"/>
+	<mx:Text text="For a start you can choose a sample study set in the language of your choice.
+Sing and Study is not limited to those languages or songs, if you prefer other languages,
+just click Continue and you can add anything by yourself." x="10" y="25" width="270"/>
+
+	<mx:List id="source"  dataProvider="{sets.state}" height="120" width="100" y="110" x="90"
+            change="this.selectedItem=List(event.target).selectedItem" />
+	<mx:Button label="Continue" click="proceed(event)" x="100" y="250" />
+</mx:Canvas>

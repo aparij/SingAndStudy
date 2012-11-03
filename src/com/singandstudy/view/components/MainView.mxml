@@ -1,0 +1,268 @@
+<?xml version="1.0" ?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+        verticalScrollPolicy="off" horizontalScrollPolicy="off" width="100%" height="100%"
+        creationComplete="init()" xmlns:components="com.singandstudy.view.components.*"
+        >
+    <mx:HBox id="buttons" >
+        <mx:Button id="addSongButton" click="songDG.handleAddRow()" toolTip="Add new song"
+            icon="@Embed('/assets/add_song32x32.png')"
+            width="36" height="36"
+            />
+        <mx:Button id="save_btn" toolTip="Save" click="saveXML()"
+            filters="{model.dataChanged ? [glow] : [] }"
+            icon="@Embed('/assets/save32x32.png')" width="36" height="36"
+            />
+        <mx:Button toolTip="Find lyrics on internet" click="lyricsPanels.lyricsflyCall()"
+            icon="@Embed('/assets/find32x32.png')" width="36" height="36"
+            />
+        <mx:Button click="showYoutube();" icon="@Embed('/assets/youtube32x32.png')"
+            toolTip="Search video on youtube"
+            width="36" height="36"
+            />
+        <mx:Button click="hideWords()" icon="@Embed('/assets/word_guess32x32.png')"
+            toolTip="Play a game of filling missing words"
+            width="36" height="36"
+            />
+
+        <mx:Button id="save_pdf" toolTip="Export as PDF"
+            icon="@Embed('/assets/pdf32x32.png')" click="savePDF()" width="36" height="36"
+            />
+
+        <components:GoogleTranslate id="googleTranslate"  x="{lyricsPanels.x}"/>
+
+
+    </mx:HBox>
+
+   <mx:HBox height="100%" width="100%" >
+        <mx:VBox verticalScrollPolicy="off" width="40%" >
+                <components:SongsDG id="songDG" />
+                <components:Amazon id="amazon" includeInLayout="{!isYoutubeVisible}" visible="{!isYoutubeVisible}" paddingLeft="10"/>
+                <components:Youtube id="youtube" visible="{isYoutubeVisible}" includeInLayout="{isYoutubeVisible}" paddingLeft="10"/>
+       </mx:VBox>
+       <components:LyricsPanels id="lyricsPanels" height="100%" width="60%" />
+    </mx:HBox>
+
+    <mx:Script><![CDATA[
+        import com.singandstudy.model.ModelLocator;
+        import com.singandstudy.Song;
+        import com.singandstudy.controller.events.AmazonCallEvent;
+        import com.singandstudy.controller.events.ItemClickedEvent;
+        import com.singandstudy.controller.events.PlayBookmarkEvent;
+
+        import org.alivepdf.pdf.PDF;
+        import org.alivepdf.saving.Method;
+
+        import mx.controls.Alert;
+        import mx.core.Application;
+        import flash.filters.GlowFilter;
+
+        [Bindable] private var model:ModelLocator;
+        [Bindable] private var songsObj:XML;
+        [Bindable] private var isYoutubeVisible:Boolean = false;
+ 		private var glow:GlowFilter = new GlowFilter();
+
+        private const EXTRA_YOUTUBE_WIDHT:int = 60;
+        private const EXTRA_YOUTUBE_HEIGHT:int = 35;
+
+        private function init():void{
+            model = ModelLocator.getInstance();
+            var file:File = File.applicationStorageDirectory.resolvePath("songData.xml");
+            var fs:FileStream = new FileStream();
+            fs.open(file, FileMode.UPDATE);
+            songsObj = XML(fs.readUTFBytes(fs.bytesAvailable));
+            fs.close();
+            var tempSong:Song;
+            for each (var item:XML in songsObj.song)
+            {
+                tempSong = new Song("", "", "", "", "", "");
+                tempSong.songName = item.songName;
+                tempSong.artist = item.artist;
+                tempSong.album = item.album;
+                tempSong.lyricsOrigin = item.lyricsOrigin;
+                tempSong.lyricsTranslate = item.lyricsTranslate;
+                tempSong.videoId = item.videoId;
+                model.songsAC.addItem(tempSong);
+                tempSong = null;
+            }
+            if (model.songsAC.length != 0) {
+                lyricsPanels.songOrigin.text = model.songsAC[0].lyricsOrigin;
+                lyricsPanels.songTranslation.text = model.songsAC[0].lyricsTranslate;
+            } else {
+                model.songsAC.addItem(new Song("", "", "", "", "", ""));
+            }
+
+            if(model.songsAC.length>0){
+				model.currentItem = songDG.songsDataGrid.dataProvider[0];
+				model.currentRow = 0;
+            }
+
+            songDG.addEventListener(AmazonCallEvent.AMAZON_CALL, amazon.callAmazon);
+            songDG.addEventListener(ItemClickedEvent.ITEM_CLICKED, itemClicked);
+            songDG.addEventListener(PlayBookmarkEvent.PLAY_BOOKMARK_EVENT, playBookmark);
+            songDG.addEventListener("clearTextAreasEvent", clearTextAreas);
+            songDG.addEventListener("savePanelsEvent", savePanels);
+            googleTranslate.addEventListener("setOriginText",setOriginText);
+            googleTranslate.addEventListener("setSongTranslation", setSongTranslation);
+
+            model.ORIGINAL_HEIGHT = Application.application.height;
+            model.ORIGINAL_WIDTH = Application.application.width;
+
+
+			glow.color = 0xff0000;
+			glow.alpha = 1;
+			glow.blurX = 20;
+			glow.blurY = 20;
+
+
+        }
+
+        private function itemClicked(event:ItemClickedEvent):void {
+            var currentItemIndex:int = model.songsAC.getItemIndex(model.currentItem);
+            if (currentItemIndex != -1)
+            {
+                model.songsAC[currentItemIndex].lyricsOrigin = lyricsPanels.songOrigin.text;
+                model.songsAC[currentItemIndex].lyricsTranslate = lyricsPanels.songTranslation.text;
+            }
+            model.originTextChanged = false;
+            model.translationTextChanged = false;
+            lyricsPanels.songOrigin.text = model.songsAC[event.rowIndex].lyricsOrigin;
+            lyricsPanels.songTranslation.text = model.songsAC[event.rowIndex].lyricsTranslate;
+        }
+
+        private function savePanels(event:Event):void {
+            var currentItemIndex:int = model.songsAC.getItemIndex(model.currentItem);
+            if (currentItemIndex != -1)
+            {
+                model.songsAC[currentItemIndex].lyricsOrigin = lyricsPanels.songOrigin.text;
+                model.songsAC[currentItemIndex].lyricsTranslate = lyricsPanels.songTranslation.text;
+            }
+            model.originTextChanged = false;
+            model.translationTextChanged = false;
+
+        }
+
+        private function clearTextAreas(event:Event):void {
+            lyricsPanels.songTranslation.text = "";
+            lyricsPanels.songOrigin.text = "";
+        }
+
+
+        private function showYoutube():void {
+
+            if (model.songsAC.length != 0) {
+                isYoutubeVisible = true;
+                songDG.stopAmazonCalls = true;
+                if (Application.application.width <= model.ORIGINAL_WIDTH + EXTRA_YOUTUBE_WIDHT )
+                	Application.application.width = model.ORIGINAL_WIDTH + EXTRA_YOUTUBE_WIDHT;
+                if (Application.application.height <= model.ORIGINAL_HEIGHT + EXTRA_YOUTUBE_HEIGHT)
+                    Application.application.height = model.ORIGINAL_HEIGHT + EXTRA_YOUTUBE_HEIGHT;
+                youtube.searchVideos();
+            }
+        }
+
+        public function hideYoutube():void {
+            if (isYoutubeVisible) {
+                isYoutubeVisible = false;
+                songDG.stopAmazonCalls = false;
+                if (Application.application.width >= (model.ORIGINAL_WIDTH + EXTRA_YOUTUBE_WIDHT))
+                	Application.application.width = model.ORIGINAL_WIDTH;
+                if (Application.application.height >= (model.ORIGINAL_HEIGHT + EXTRA_YOUTUBE_HEIGHT))
+                    Application.application.height = model.ORIGINAL_HEIGHT;
+
+                youtube.stopMovie();
+            }
+
+        }
+
+        private function playBookmark(event:PlayBookmarkEvent):void {
+            showYoutube();
+            youtube.playBookmark(event.videoId);
+        }
+
+        private function hideWords():void {
+            lyricsPanels.hideWords();
+        }
+
+
+        /**
+         * 	When the translate is clicked we need to get text from LyricsPanels to GoogleTranslate
+         *
+         **/
+        private function setOriginText(event:*=null):void{
+            googleTranslate.setOriginText(lyricsPanels.songOrigin.text);
+
+        }
+
+        /**
+         *  When we receive a responce from Google translate , set the text on
+         *  LyricsPanel from GoogleTranslate
+         *
+         **/
+        private function setSongTranslation(event:*=null):void{
+            lyricsPanels.songTranslation.text=model.songsAC[model.currentRow].lyricsTranslate;
+        }
+
+        public function saveXML():void {
+            //save the last change because the ItemClickEvent was not called
+            if (model.originTextChanged || model.translationTextChanged) {
+                model.songsAC[model.currentRow].lyricsOrigin = lyricsPanels.songOrigin.text;
+                model.songsAC[model.currentRow].lyricsTranslate = lyricsPanels.songTranslation.text;
+                model.originTextChanged = false;
+                model.translationTextChanged = false;
+            }
+            var file:File = File.applicationStorageDirectory.resolvePath("songData.xml");
+            saveFile(file);
+            model.dataChanged = false;
+        }
+
+        public function saveFile(f:File):void {
+            var s:FileStream = new FileStream();
+            s.open(f, FileMode.WRITE);
+            s.writeUTFBytes(generateXML());
+            s.close();
+
+        }
+
+        private function generateXML():String {
+            var x:XML = new XML("<songs></songs>");
+            for (var i:int = 0; i < model.songsAC.length; i++) {
+                var newnode:XML = new XML();
+                newnode =
+                <song >
+                    <songName>{model.songsAC[i].songName}</songName>
+                    <artist>{model.songsAC[i].artist}</artist>
+                    <album>{model.songsAC[i].album}</album>
+                    <lyricsOrigin>{model.songsAC[i].lyricsOrigin}</lyricsOrigin>
+                    <lyricsTranslate>{model.songsAC[i].lyricsTranslate}</lyricsTranslate>
+                    <videoId>{model.songsAC[i].videoId}</videoId>
+                </song>;
+                x = x.appendChild(newnode);
+            }
+            return x.toString();
+        }
+        public function savePDF(event:* = null):void {
+
+            //var bytes:ByteArray = myPDF.save(Method.LOCAL);
+            var file:File = new File();
+            file.addEventListener(Event.SELECT, onSavePDFSelected);
+            file.browseForSave("Save pdf file");
+        }
+
+        public function onSavePDFSelected(e:Event):void {
+            var file:File = e.currentTarget as File;
+            var s:FileStream = new FileStream();
+            s.open(file, FileMode.WRITE);
+            var myPDF:PDF = lyricsPanels.getPDF();
+            s.writeBytes(myPDF.save(Method.LOCAL));
+            s.close();
+            Alert.show("Pdf of lyrics has been saved to " + file.nativePath + " ");
+        }
+
+        ]]>
+    </mx:Script>
+</mx:VBox>
+
+
+
+
+

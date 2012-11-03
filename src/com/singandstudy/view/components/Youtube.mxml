@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:components="com.singandstudy.view.components.*"
+	xmlns:youtube="de.derhess.video.youtube.*"
+	creationComplete="init()"
+	horizontalScrollPolicy="off" verticalScrollPolicy="off"
+	>		<!--330 275-->
+		<mx:ViewStack id="viewStack"  clipContent="true" width="330" height="285">
+	        <mx:Canvas   label="List"  borderColor="0xFFFFFF" borderThickness="5" borderStyle="solid" >
+		          <mx:TileList  id="videoResultsView" rowHeight="120"
+								itemRenderer="com.singandstudy.view.components.VideoItem"
+								columnWidth="300" columnCount="1"
+								right="5" left="5" top="5" bottom="5">
+				  </mx:TileList>
+	         </mx:Canvas>
+	        <mx:Canvas id="movieCanvas"  backgroundColor="black" label="Video" width="330" height="285"
+	            	   borderColor="0xFFFFFF" borderThickness="5" borderStyle="solid"
+	           		   horizontalScrollPolicy="off" verticalScrollPolicy="off"
+	           >
+				<youtube:AirYouTube id="youTubePlayer"
+					x="0" y="0"
+					width="320" height="240"
+					volume="{sliderVolume.value}"
+					youtubePlayerLoaded="{handlePlayerLoaded(event);}"
+					youtubeError="{handleYouTubeError(event);}"
+				 />
+				<mx:Text text="" visible="false" x="16" y="120" id="errorsBox" />
+				<mx:Button label="" click="{handleStop(event);}" y="240" x="0" icon="{stopIcon}" width="20"/>
+				<mx:Button label="" click="{handlePlay(event);}" y="240" x="20" icon="{playIcon}" width="20"/>
+				<mx:Button label="" click="{handlePause(event);}" y="240" x="40" icon="{pauseIcon}" width="20"/>
+				<mx:ProgressBar id="progresPlayingVideo" mode="manual" label="" labelPlacement="center" y="240" x="60" width="170"/>
+				<mx:HSlider id="sliderPlay" minimum="0" maximum="100" value="0" liveDragging="true" y="252" x="60" width="170" thumbRelease="seekVideo(event);"/>
+				<mx:HSlider id="sliderVolume" minimum="0" maximum="100" value="100" liveDragging="true" y="240" x="249" width="70"/>
+    			<mx:Image id="volumeIcon" source="@Embed(source='assets/volume16x16.png')" y="240" x="233" />
+
+			</mx:Canvas>
+    	</mx:ViewStack>
+		<mx:HBox>
+			<mx:ToggleButtonBar dataProvider="{viewStack}" itemClick="changeStackHandler(event)"   />
+			<mx:Button icon="@Embed('/assets/heart32x32.png')" width="32" height="32"
+		                        	click="addBookmark()"
+		                        	toolTip="Bookmark video"
+		    />
+	    </mx:HBox>
+	   <mx:Script><![CDATA[
+           import be.boulevart.google.GoogleVideoSearch;
+           import be.boulevart.google.data.GoogleVideo;
+           import be.boulevart.google.events.GoogleSearchEvent;
+		   import mx.collections.ArrayCollection;
+
+           import com.singandstudy.controller.events.ShowMovieEvent;
+           import com.singandstudy.model.ModelLocator;
+
+		   import de.derhess.video.youtube.YouTubeEvent;
+		   import de.derhess.video.youtube.YouTubeVideoQuality;
+		   import de.derhess.video.youtube.YouTubeError;
+		   import de.derhess.video.youtube.YouTubePlayingState;
+		   import de.derhess.video.youtube.AirYouTube;
+		   import mx.controls.Alert;
+		   import mx.events.SliderEvent;
+           import mx.events.ItemClickEvent;
+
+           private var teller:int = 0
+           private var __results:Array;
+           private var max:int = 10;
+           [Bindable]
+           private var videoId:String;
+
+           [Bindable]
+           public var model:ModelLocator;
+
+/*            [Bindable]
+           public var youTubePlayer:AirYouTube; */
+
+
+            [Bindable]
+            [Embed("assets/control_play_blue.png")]
+            private var playIcon:Class;
+
+            [Bindable]
+            [Embed("assets/control_pause_blue.png")]
+            private var pauseIcon:Class;
+
+            [Bindable]
+            [Embed("assets/control_stop_blue.png")]
+            private var stopIcon:Class;
+
+           private function init():void {
+               model = ModelLocator.getInstance();
+               videoResultsView.addEventListener(ShowMovieEvent.SHOW_MOVIE_EVENT, flipCanvasHandler, false, 0, true);
+/* 			   youTubePlayer = new AirYouTube();
+		  	   youTubePlayer.width = 320
+			   youTubePlayer.height = 240
+			   youTubePlayer. */
+               //youtubeMovie = new MovieSprite("GJ1sZBTnbuE");
+               //youtubeMovie.visible = false;
+               //movieCanvas.rawChildren.addChild(youtubeMovie);
+
+           }
+
+           private function changeStackHandler(event:ItemClickEvent):void {
+
+               if (event.index == 1) {
+
+               } else {
+
+               }
+
+           }
+
+           public function searchVideos():void {
+               var googleVideoSearch:GoogleVideoSearch = new GoogleVideoSearch();
+               var keywords:String;
+               googleVideoSearch.addEventListener(GoogleSearchEvent.VIDEO_SEARCH_RESULT, onVideoResult, false, 0, true)
+               __results = new Array()
+               var scoring:String = ""
+               keywords = model.songsAC.getItemAt(model.currentRow).artist + " ";
+               keywords += model.songsAC.getItemAt(model.currentRow).songName;
+               googleVideoSearch.search(keywords, teller, scoring)
+           }
+
+           private function onVideoResult(e:GoogleSearchEvent):void {
+               for each(var video:GoogleVideo in e.data) {
+                   __results.push(video)
+                   videoResultsView.dataProvider = __results
+               }
+           }
+
+           private function reset():void {
+               __results = null;
+               __results = new Array()
+           }
+
+           public function flipCanvasHandler(flipEvent:ShowMovieEvent):void {
+               var tempUrl:String = flipEvent.url;
+               var tokens:Array = tempUrl.split("/");
+               videoId = tokens[4].split("&")[0];
+               viewStack.selectedIndex = 1;
+               if(youTubePlayer==null)
+               		callLater(playMovie)
+               else
+               		playMovie();
+           }
+
+
+             public function playMovie():void {
+             	errorsBox.visible=false;
+             	youTubePlayer.loadVideoById(videoId,0,YouTubeVideoQuality.SMALL);
+             	this.addEventListener(Event.ENTER_FRAME,handlePlayingTime);
+      		}
+
+/*               youtubeMovie.x = 5;
+               youtubeMovie.y = 5;
+               youtubeMovie.width = 320;
+               youtubeMovie.height = 270;
+
+               youtubeMovie.stopVideo();
+               youtubeMovie.clearVideo();
+               youtubeMovie.visible = true;
+         	   youtubeMovie.loadVideoById(videoId);
+               youtubeMovie.playVideo();
+ */
+           public function stopMovie():void {
+				youTubePlayer.destroy();
+
+/*              if (youtubeMovie != null) {
+                   //Alert.show(youtubeMovie.playerReady);
+                   youtubeMovie.stopVideo();
+                   youtubeMovie.clearVideo();
+                   viewStack.selectedIndex = 1;
+                   //youtubeMovie.destroy();
+               } */
+
+
+           }
+
+           public function addBookmark():void {
+               if (model.songsAC.length != 0) {
+                   model.songsAC[model.currentRow].videoId = videoId;
+                   model.dataChanged = true;
+               }
+           }
+
+           public function playBookmark(videoId:String) {
+               this.videoId = videoId;
+               viewStack.selectedIndex = 1;
+               if(youTubePlayer==null)
+               		callLater(playMovie)
+               else
+               		playMovie();
+
+
+           }
+			//----------------------------------
+			//  YouTube Event Handling
+			//----------------------------------
+			private function handlePlayerLoaded(event:YouTubeEvent):void
+	        {
+	        	youTubePlayer.loadVideoById(videoId,0,YouTubeVideoQuality.DEFAULT);
+	        }
+
+	        private function handleYouTubeError(event:YouTubeEvent):void
+	        {
+	        	var message:String = "";
+	        	switch(event.errorCode)
+				{
+				    case YouTubeError.VIDEO_NOT_FOUND:
+				        message = "Video not found: " + event.errorCode;
+				        break;
+				    case YouTubeError.VIDEO_NOT_ALLOWED:
+				        message = "Video not allowed: " + event.errorCode;
+				        break;
+				    case YouTubeError.EMBEDDING_NOT_ALLOWED:
+				        message = "Embedding not allowed: " + event.errorCode;
+				        break;
+
+				    default:
+				        message = "undefined Error:" + event.errorCode;
+				        break;
+				}
+				errorsBox.visible=true
+				errorsBox.text="YouTube Error : "+message+ "\n Please bookmark another video from the list."
+	        }
+
+	        //----------------------------------
+			//  YouTube Player Control
+			//----------------------------------
+			private function handlePlay(event:*=null):void
+			{
+				youTubePlayer.playVideo();
+				this.addEventListener(Event.ENTER_FRAME,handlePlayingTime);
+			}
+
+			private function handlePause(event:MouseEvent):void
+			{
+				youTubePlayer.pauseVideo();
+				this.removeEventListener(Event.ENTER_FRAME,handlePlayingTime);
+			}
+
+			private function handleStop(event:MouseEvent):void
+			{
+				youTubePlayer.stopVideo();
+				sliderPlay.value=0;
+				this.removeEventListener(Event.ENTER_FRAME,handlePlayingTime);
+
+			}
+
+			private function handlePlayingTime(e:Event):void
+			{
+				sliderPlay.maximum = youTubePlayer.getDuration()
+
+				progresPlayingVideo.minimum = 0;
+				progresPlayingVideo.maximum = youTubePlayer.getDuration();
+				progresPlayingVideo.setProgress(youTubePlayer.getCurrentTime(),youTubePlayer.getDuration());
+
+			}
+
+			public function seekVideo(event:SliderEvent):void{
+				youTubePlayer.seekTo(sliderPlay.value);
+			}
+           ]]></mx:Script>
+</mx:VBox>

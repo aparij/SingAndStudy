@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+
+	creationComplete="init()"   resize="resize(event)"
+	>
+<!--	<mx:states>
+		<mx:State name="HideWords" >
+			<mx:RemoveChild target="{songOrigin}"/>
+		</mx:State>
+	</mx:states>-->
+
+	    <mx:Panel id="myPanel1" title="{label1}" height="100%" width="100%"  color="0xDEDEDE" >
+				<mx:TextArea id="songOrigin"  width="100%" height="100%" change="originTextChange();"  />
+  		</mx:Panel>
+
+
+		<mx:Panel id="myPanel2" title="{label2}" height="100%" width="100%" color="0xDEDEDE" >
+			<mx:TextArea id="songTranslation"  width="100%" height="100%" change="translationTextChange();" />
+		</mx:Panel>
+
+<!--		<mx:HTTPService id="lyricsService" url="http://lyricwiki.org/api.php?fmt=xml"
+			useProxy="false" method="get" result="resultHandler(event);" fault="faultHandler(event);" >
+		  <mx:request xmlns="">
+		    <artist>{model.songsAC.getItemAt(model.currentRow).artist}</artist>
+		    <song>{model.songsAC.getItemAt(model.currentRow).songName}</song>
+		  </mx:request>
+		</mx:HTTPService>-->
+		<mx:HTTPService id="lyricsflyService"
+			useProxy="false" method="get" result="resultFlyHandler(event);" fault="faultFlyHandler(event);" >
+		 <!-- <mx:request xmlns="">
+		    <artist>{model.songsAC.getItemAt(model.currentRow).artist}</artist>
+		    <song>{model.songsAC.getItemAt(model.currentRow).songName}</song>
+		  </mx:request>-->
+		</mx:HTTPService>
+
+
+		<mx:Script><![CDATA[
+			import mx.events.ResizeEvent;
+            import com.singandstudy.model.ModelLocator;
+
+            import mx.containers.Tile;
+            import mx.containers.VBox;
+            import mx.controls.Text;
+            import mx.events.DynamicEvent;
+            import mx.rpc.events.FaultEvent;
+            import mx.rpc.events.ResultEvent;
+            import mx.states.*;
+            import mx.states.AddChild;
+
+            import org.alivepdf.display.Display;
+            import org.alivepdf.fonts.FontFamily;
+            import org.alivepdf.fonts.Style;
+            import org.alivepdf.layout.Layout;
+            import org.alivepdf.layout.Orientation;
+            import org.alivepdf.layout.Size;
+            import org.alivepdf.layout.Unit;
+            import org.alivepdf.pages.Page;
+            import org.alivepdf.pdf.PDF;
+
+            private var myPDF:PDF;
+
+            private var label1:String = "Original lyrics";
+            private var label2:String = "Translated lyrics";
+
+            private var LINES_DISTANCE:int = 6;
+
+
+            [Bindable]
+            public var model:ModelLocator;
+
+            private function init():void {
+                model = ModelLocator.getInstance();
+                myPanel1.addEventListener("JumpToNext", jumpToNext);
+
+            }
+            private function resize(event:*):void{
+            	myPanel1.height = this.height-1;
+
+            }
+            public function lyricsflyCall():void {
+                var url:String = "";
+                if (model != null && model.songsAC.length != 0) {
+                    url = "http://lyricsfly.com/api/api.php?i=XXX-singandstudy.com" + "&a=" +
+                          model.songsAC.getItemAt(model.currentRow).artist + "&t=" + model.songsAC.getItemAt(model.currentRow).songName;
+                    lyricsflyService.url = url;
+                    lyricsflyService.send();
+
+                }
+            }
+
+            /**
+             *
+             *    Put the found lyrics from API response in the TextArea
+             *
+             */
+            /*         private function resultHandler(event:ResultEvent):void
+             {
+             originTextChange();
+             if(event.result.LyricsResult != null ){
+             songOrigin.text=event.result.LyricsResult.lyrics;
+             var currentItemIndex:int = model.songsAC.getItemIndex(model.currentItem);
+             if(currentItemIndex != -1 )
+             {
+             model.songsAC[currentItemIndex].lyricsOrigin=event.result.LyricsResult.lyrics;
+
+             }
+             //model.songsAC[model.currentRow].lyricsOrigin = event.result.LyricsResult.lyrics;
+             }
+
+
+             } */
+            private function resultFlyHandler(event:ResultEvent):void
+            {
+                try{
+                    if (event.result.start.status == '200') {
+                    	var songLyrics:String="";
+                    	if(event.result.start.sg.length >0)
+                    		songLyrics = event.result.start.sg[0].tx;
+                    	else
+	                        songLyrics =event.result.start.sg.tx;
+                        var br:RegExp = /\[br\]/g;
+                        songLyrics = songLyrics.replace(br, "\r");
+                        originTextChange();
+                        songOrigin.text = songLyrics;
+                        var currentItemIndex:int = model.songsAC.getItemIndex(model.currentItem);
+                        if (currentItemIndex != -1)
+                        {
+                             model.songsAC[currentItemIndex].lyricsOrigin = songLyrics;
+                        }
+                            //model.songsAC[model.currentRow].lyricsOrigin = event.result.LyricsResult.lyrics;
+                    } else {
+                        if (event.result.start.sg == "Query not found!" &&(songOrigin.text == null || songOrigin.text == ""))
+                            songOrigin.text = "Lyrics not found";
+                    }
+                }
+                catch (ignored:Error){
+					trace(ignored);
+                }
+
+            }
+
+
+            private function faultFlyHandler(event:FaultEvent):void {
+				songOrigin.text = "Find lyrics service is down. Please use google to find lyrics"
+            }
+
+
+            private function originTextChange():void {
+                model.originTextChanged = true;
+                model.dataChanged = true;
+            }
+
+            private function translationTextChange():void {
+                model.translationTextChanged = true;
+                model.dataChanged = true;
+            }
+
+            public function hideWords():void {
+
+                if (currentState == 'HideWords') {
+                    currentState = '';
+                } else if ( model.songsAC.getItemAt(model.currentRow).lyricsOrigin != "") {
+
+                    var newState:State = new State();
+                    newState.name = "HideWords";
+                    //var removePopSource:RemoveChild = new RemoveChild(popSource);
+                    //newState.overrides.push(removePopSource);
+                    var removeSongOrigin:RemoveChild = new RemoveChild(songOrigin);
+                    newState.overrides.push(removeSongOrigin);
+                    var songText:String = model.songsAC.getItemAt(model.currentRow).lyricsOrigin;
+                    var words:Array = songText.split(/[.,:\s+]/);
+                    var filteredWords:Array = words.filter(notEmpty);
+                    var numberOfHiddenWords:int = 10;
+                    var numberPerGroup:int = filteredWords.length / numberOfHiddenWords;
+                    var indexEndLastBlock:int = -1;
+                    var selectedNumber:int = -1;
+                    var selectedWord:String = "";
+                    var previousSelectedNumber:int = -1;
+                    var textVBox:VBox = new VBox();
+
+                    for (var i:int = 0; i < numberOfHiddenWords; i++)
+                    {
+                        previousSelectedNumber = selectedNumber;
+                        selectedNumber = randomInRange(i * numberPerGroup, (i + 1) * numberPerGroup);
+                        selectedWord = filteredWords[selectedNumber];
+                        var tempString:String = "";
+                        for (var k:int = 0; k < (selectedNumber - 1); k++) {
+                            tempString += " " + filteredWords[k];
+                        }
+                        var indexInSong:int = songText.indexOf(selectedWord, tempString.length);
+                        var indexEndOfLine:int = songText.lastIndexOf("\r", indexInSong);
+                        var simpleTextBefore:Text = new Text();
+                        simpleTextBefore.text = songText.substring(indexEndLastBlock + 1, indexEndOfLine);
+                        textVBox.addChild(simpleTextBefore);
+                        /****Input Line **************************************/
+                        var middleHBox:HBox = new HBox();
+                        var beforeInput:Text = new Text();
+                        beforeInput.text = songText.substring(indexEndOfLine + 1, indexInSong - 1);
+                        var hiddenBox:HiddenTextInput = new HiddenTextInput();
+                        hiddenBox.index = i;
+                        hiddenBox.selectedWord = selectedWord;
+
+                        var afterInput:Text = new Text();
+                        var indexEndAfterText:int = songText.indexOf("\r", indexInSong);
+                        afterInput.text = songText.substring(indexInSong + selectedWord.length, indexEndAfterText);
+
+                        middleHBox.addChild(beforeInput);
+                        middleHBox.addChild(hiddenBox);
+                        middleHBox.addChild(afterInput);
+                        textVBox.addChild(middleHBox);
+                        /*************** The rest of text block after the input line ********************/
+                        var simpleTextAfter:Text = new Text();
+                        var lastWordInRange:String;
+                        if ((i + 1) == numberOfHiddenWords)
+                            lastWordInRange = filteredWords[filteredWords.length - 1];
+                        else
+                            lastWordInRange = filteredWords[(i + 1) * numberPerGroup];
+                        tempString = "";
+                        for (var j:int = 0; j < ((i + 1) * numberPerGroup - numberPerGroup / 10); j++) {
+                            tempString += " " + filteredWords[j];
+                        }
+                        indexInSong = songText.indexOf(lastWordInRange, tempString.length);
+                        indexEndLastBlock = songText.indexOf("\r", indexInSong);
+                        if (indexEndLastBlock == -1)
+                            indexEndLastBlock = songText.length;
+                        simpleTextAfter.text = songText.substring(indexEndAfterText + 1, indexEndLastBlock);
+                        textVBox.addChild(simpleTextAfter);
+                    }
+
+                    var newActionAdd:AddChild = new AddChild(myPanel1, textVBox);
+                    newState.overrides.push(newActionAdd);
+
+                    states = new Array();
+                    states.push(newState);
+                    currentState = 'HideWords';
+
+
+                }
+            }
+
+            private function notEmpty(element:*, index:int, arr:Array):Boolean {
+                return (element != "");
+            }
+
+            private function randomInRange(min:Number, max:Number):Number {
+                var scale:Number = max - min;
+                return Math.random() * scale + min;
+            }
+
+            public function getPDF():PDF {
+                var myPDF:PDF = new PDF(Orientation.PORTRAIT, Unit.MM, Size.A4);
+
+                myPDF.setDisplayMode(Display.FULL_PAGE, Layout.SINGLE_PAGE);
+
+                var newPage:Page = new Page(Orientation.PORTRAIT, Unit.MM, Size.A4);
+
+                myPDF.addPage(newPage);
+
+                myPDF.setFont(FontFamily.ARIAL, Style.NORMAL, 12);
+                myPDF.setXY(10, 10);
+                myPDF.addMultiCell(400, 15, model.songsAC.getItemAt(model.currentRow).songName + "-"
+                        + model.songsAC.getItemAt(model.currentRow).artist + "/"
+                        + model.songsAC.getItemAt(model.currentRow).album);
+                if (currentState == '' || currentState == null)
+                {
+                    var songText:String = model.songsAC.getItemAt(model.currentRow).lyricsOrigin;
+                    var startIndex:int = -1;
+                    while (1)
+                        if (songText.indexOf("\r", startIndex) != -1)
+                        {
+                            myPDF.addMultiCell(400, LINES_DISTANCE, songText.substring(startIndex, songText.indexOf("\r", startIndex)));
+                            startIndex = songText.indexOf("\r", startIndex) + 1;
+                        }
+                        else
+                        {
+                            myPDF.addMultiCell(400, LINES_DISTANCE, songText.substring(startIndex, songText.length));
+                            break;
+                        }
+                } else {
+                    var textVBox:VBox = myPanel1.getChildren()[0];
+                    var startIndex:int = -1;
+                    for each (var component:* in textVBox.getChildren())
+                    {
+                        if (component is Text) {
+                            var songText:String = component.text;
+                            startIndex = -1;
+                            while (1)
+                                if (songText.indexOf("\r", startIndex) != -1)
+                                {
+                                    myPDF.addMultiCell(400, LINES_DISTANCE, songText.substring(startIndex, songText.indexOf("\r", startIndex)));
+                                    startIndex = songText.indexOf("\r", startIndex) + 1;
+                                }
+                                else
+                                {
+                                    myPDF.addMultiCell(400, LINES_DISTANCE, songText.substring(startIndex, songText.length));
+                                    break;
+                                }
+                        } else if (component is HBox) {
+                            var temp:Array = component.getChildren();
+                            var line:String = "";
+                            line = line + temp[0].text;
+                            for (var i:int = 0; i <= temp[1].selectedWord.length; i++)
+                                line = line + "__";
+                            line = line + temp[2].text;
+                            myPDF.addMultiCell(400, LINES_DISTANCE, line);
+                        }
+                    }
+                }
+                return myPDF;
+            }
+
+            private function jumpToNext(event:DynamicEvent):void {
+                var textVBox:VBox = myPanel1.getChildren()[0];
+                var setNext:Boolean = false;
+                for each (var component:* in textVBox.getChildren())
+                {
+                    if (component is HBox) {
+                        if (setNext) {
+                            component.getChildren()[1].setFocusOnMe();
+                            break;
+                        }
+                        if (component.getChildren()[1].index == event.index)
+                            setNext = true;
+                    }
+                }
+
+            }
+
+            ]]></mx:Script>
+
+</mx:HBox>
