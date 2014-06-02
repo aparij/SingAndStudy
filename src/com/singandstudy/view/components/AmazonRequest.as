@@ -13,8 +13,8 @@ public class AmazonRequest
 	{
 		public static const AWS_NAMESPACE	: Namespace	= new Namespace("http://webservices.amazon.com/AWSECommerceService/2009-01-06");
 
-			private static const AWS_KEY		: String	= "1JNRVHDDP86XR2HEZSG2";
-			private static const AWS_SECRET 	: String	= "q0dJAokq5N7QdwnilgaZqsoBZeDL3GvczNGMbv+A";
+			private static const AWS_KEY		: String	= "";
+			private static const AWS_SECRET 	: String	= "";
 			private static const AWS_METHOD		: String	= "GET";
 			private static const AWS_HOST		: String	= "ecs.amazonaws.com";
 			private static const AWS_PATH		: String	= "/onca/xml";
